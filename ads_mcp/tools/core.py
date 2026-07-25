@@ -36,21 +36,22 @@ def list_accessible_customers(
     it, so this expands each manager the user was granted and returns the
     accounts underneath, not just the manager itself.
 
+    Each entry describes one account: `customer_id` to pass to other tools,
+    `descriptive_name` as shown in the Google Ads UI, `manager`, `level` (0 is
+    an account granted directly to the user), `status` (ENABLED, CANCELED,
+    SUSPENDED or CLOSED), `currency_code` for reading cost metrics, and
+    `time_zone`, which the account's dates are reported in.
+
+    Read performance data only from entries where `manager` is False. A manager
+    account (MCC) groups other accounts and runs no ads of its own, so asking
+    one for `campaign` returns zero rows and asking it for metrics fails
+    outright. Treat an empty result from a manager as "look in the accounts
+    beneath it", never as "this business is not advertising". To see which
+    accounts a manager groups, query `customer_client` on it.
+
     Args:
         include_inactive: Also return accounts that are not enabled (for
             example cancelled or suspended ones). Defaults to False.
-
-    Returns:
-        One entry per account, each with:
-            customer_id: The id to pass to other tools.
-            descriptive_name: The account name shown in the Google Ads UI.
-            manager: True for manager accounts (MCCs). These group other
-                accounts and hold no campaign data of their own, so query the
-                non-manager accounts beneath them instead.
-            level: Depth below the granted account; 0 is the granted account.
-            status: For example ENABLED, CANCELED, SUSPENDED, CLOSED.
-            currency_code: The account's currency, for reading cost metrics.
-            time_zone: The account's time zone, which its dates are reported in.
     """
     access_map = customer_resolver.get_access_map()
 
