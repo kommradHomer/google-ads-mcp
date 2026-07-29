@@ -32,6 +32,16 @@ if _CLIENT_ID and _CLIENT_SECRET:
         client_id=_CLIENT_ID,
         client_secret=_CLIENT_SECRET,
         base_url=_BASE_URL,
+        # Google's access tokens last an hour. Mirroring that gave every user
+        # an expiry cliff every hour, and clients that idle across one can
+        # take a hard 401 and restart the whole consent flow instead of
+        # refreshing silently. Issuing our own longer-lived token turns 24
+        # cliffs a day into one; the upstream refresh token (good for a year)
+        # stays the source of truth, so revoked access still fails promptly.
+        fastmcp_access_token_expiry_seconds=86400,
+        # Refresh a few minutes early rather than exactly at expiry, so a
+        # request in flight at the boundary does not race it.
+        token_expiry_threshold_seconds=300,
         required_scopes=[
             "openid",
             "https://www.googleapis.com/auth/userinfo.email",
