@@ -21,14 +21,17 @@ of the server.
 
 import os
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.google import GoogleProvider
+
+from ads_mcp.auth_logging import LoggingGoogleProvider
 
 _CLIENT_ID = os.environ.get("GOOGLE_ADS_MCP_OAUTH_CLIENT_ID")
 _CLIENT_SECRET = os.environ.get("GOOGLE_ADS_MCP_OAUTH_CLIENT_SECRET")
 _BASE_URL = os.environ.get("GOOGLE_ADS_MCP_BASE_URL", "http://localhost:8080")
 
 if _CLIENT_ID and _CLIENT_SECRET:
-    auth = GoogleProvider(
+    # A plain GoogleProvider logs only an opaque client id, which cannot answer
+    # "who had to sign in again, and when?". See ads_mcp/auth_logging.py.
+    auth = LoggingGoogleProvider(
         client_id=_CLIENT_ID,
         client_secret=_CLIENT_SECRET,
         base_url=_BASE_URL,

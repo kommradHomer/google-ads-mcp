@@ -107,6 +107,30 @@ def _normalize(customer_id: str) -> str:
     return customer_id.replace("-", "").replace(" ", "").strip()
 
 
+def _current_token():
+    """Returns the FastMCP access token for the calling request, or None."""
+    try:
+        from fastmcp.server.dependencies import get_access_token
+
+        return get_access_token()
+    except Exception:  # not running under an authenticated FastMCP request
+        return None
+
+
+def _current_email(token=None) -> Optional[str]:
+    """Returns the caller's email from OAuth claims, for log correlation only.
+
+    Never used as a cache or security key (see `_identity`) -- purely so a
+    "why did I get logged out" complaint can be matched to a log line instead
+    of guessed from account/root counts.
+    """
+    token = token if token is not None else _current_token()
+    if token is None:
+        return None
+    claims = getattr(token, "claims", None) or {}
+    return claims.get("email")
+
+
 def _identity() -> str:
     """Returns a stable cache key for the calling user.
 
@@ -115,12 +139,7 @@ def _identity() -> str:
     two users. Under Application Default Credentials (local stdio use) the
     process serves a single user, so a constant key is correct.
     """
-    try:
-        from fastmcp.server.dependencies import get_access_token
-
-        token = get_access_token()
-    except Exception:  # not running under an authenticated FastMCP request
-        token = None
+    token = _current_token()
 
     if token is None:
         return "adc"
@@ -186,6 +205,7 @@ def _expand_root(root_customer_id: str) -> List[Account]:
 
 def _build_access_map() -> AccessMap:
     """Resolves the caller's reachable accounts from the live hierarchy."""
+    email = _current_email() or "unknown"
     roots = _list_root_customer_ids()
     accounts: Dict[str, Account] = {}
 
@@ -196,7 +216,10 @@ def _build_access_map() -> AccessMap:
             # One unreadable root (for example a manager the user was removed
             # from mid-session) must not hide every other account they have.
             utils.logger.warning(
-                "ads_mcp: could not expand accessible root %s: %s", root, error
+                "ads_mcp: could not expand accessible root %s for %s: %s",
+                root,
+                email,
+                error,
             )
             continue
 
@@ -206,9 +229,10 @@ def _build_access_map() -> AccessMap:
             accounts.setdefault(account.customer_id, account)
 
     utils.logger.info(
-        "ads_mcp: resolved %d account(s) under %d accessible root(s)",
+        "ads_mcp: resolved %d account(s) under %d accessible root(s) for %s",
         len(accounts),
         len(roots),
+        email,
     )
     return AccessMap(roots=roots, accounts=accounts)
 
