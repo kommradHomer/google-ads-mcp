@@ -92,10 +92,10 @@ def search(
 def _dedent_docstring(docstring: str) -> str:
     """Removes the body indentation of a docstring, keeping its summary line.
 
-    The generated description below appends unindented sections to this
-    docstring. Leaving the original `Args:` block indented would mix
-    indentation levels within one docstring, which stops the argument
-    descriptions being parsed out into the tool schema at all.
+    Only affects how the docstring reads once embedded in the generated
+    description below, which mixes it with unindented sections. The tool's
+    argument descriptions are parsed from the pristine docstring instead, so
+    this no longer has to preserve anything a docstring parser relies on.
     """
     summary, separator, body = docstring.partition("\n")
     return summary + separator + textwrap.dedent(body)
@@ -155,7 +155,17 @@ def _search_tool_description() -> str:
 # runtime. Uses the `add_tool` method instead of an annnotation since `add_tool`
 # provides the flexibility needed to generate the description while also
 # including the `search` method's docstring.
-search.__doc__ = _search_tool_description()
+#
+# The description is passed explicitly rather than written onto `search.__doc__`.
+# Assigning it to the docstring makes FastMCP's docstring parser treat the whole
+# generated text as one docstring and keep only its summary line, silently
+# dropping the hints and the list of valid resources. Leaving the docstring
+# pristine keeps the `Args:` block parsable into the argument schema, and the
+# full text still reaches the model as the description.
 search_mcp.add_tool(
-    Tool.from_function(search, annotations=ToolAnnotations(readOnlyHint=True))
+    Tool.from_function(
+        search,
+        description=_search_tool_description(),
+        annotations=ToolAnnotations(readOnlyHint=True),
+    )
 )
