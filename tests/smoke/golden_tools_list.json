@@ -149,6 +149,82 @@
         "type": "object",
         "x-fastmcp-wrap-result": true
       }
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Runs one search query against many customers in a single call.\n\nUse this instead of looping `search` per customer whenever the same\nquery should be answered for several customer ids (for example, the\nspend of every account under a manager). One call here replaces one\n`search` call per customer. Query syntax, hints, and the list of valid\nresources are documented on the `search` tool; the query arguments are\nidentical, only `customer_ids` differs.\n\nAccepts at most 50 customer ids per call; chunk larger sets. `limit`\napplies per customer, not to the batch as a whole.\n\nReturns an object with two keys: `results` maps each customer id to its\nrows, and `errors` maps each customer id that failed to its error\nmessage. A failing customer never fails the batch; only if every\ncustomer fails is an error raised.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "conditions": {
+            "default": [],
+            "description": "List of conditions to filter the data, combined using AND clauses",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "customer_ids": {
+            "description": "The ids of the customers to run the query against",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "fields": {
+            "description": "The fields to fetch",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The maximum number of rows to return per customer"
+          },
+          "orderings": {
+            "default": [],
+            "description": "How the data is ordered",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "resource": {
+            "description": "The resource to return fields from",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_ids",
+          "fields",
+          "resource"
+        ],
+        "type": "object"
+      },
+      "name": "search_search_batch",
+      "outputSchema": {
+        "additionalProperties": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "object"
+      }
     }
   ]
 }

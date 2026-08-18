@@ -14,7 +14,9 @@
 
 """Tools for exposing the API Search method to the MCP server."""
 
+import contextvars
 import textwrap
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
 from fastmcp import FastMCP
 from fastmcp.tools import Tool
@@ -87,6 +89,100 @@ def search(
         raise ToolError(
             f"Request ID: {ex.request_id}\n" + "\n".join(error_msgs)
         )
+
+
+_SEARCH_BATCH_MAX_CUSTOMERS = 50
+_SEARCH_BATCH_MAX_WORKERS = 8
+
+
+def search_batch(
+    customer_ids: List[str],
+    fields: List[str],
+    resource: str,
+    conditions: List[str] = [],
+    orderings: List[str] = [],
+    limit: int | None = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Runs one search query against many customers in a single call.
+
+    Use this instead of looping `search` per customer whenever the same
+    query should be answered for several customer ids (for example, the
+    spend of every account under a manager). One call here replaces one
+    `search` call per customer. Query syntax, hints, and the list of valid
+    resources are documented on the `search` tool; the query arguments are
+    identical, only `customer_ids` differs.
+
+    Accepts at most 50 customer ids per call; chunk larger sets. `limit`
+    applies per customer, not to the batch as a whole.
+
+    Returns an object with two keys: `results` maps each customer id to its
+    rows, and `errors` maps each customer id that failed to its error
+    message. A failing customer never fails the batch; only if every
+    customer fails is an error raised.
+
+    Args:
+        customer_ids: The ids of the customers to run the query against
+        fields: The fields to fetch
+        resource: The resource to return fields from
+        conditions: List of conditions to filter the data, combined using AND clauses
+        orderings: How the data is ordered
+        limit: The maximum number of rows to return per customer
+
+    """
+    if not customer_ids:
+        raise ToolError("customer_ids must not be empty.")
+
+    # Dedupe while preserving order so one account is only queried once.
+    customer_ids = list(dict.fromkeys(customer_ids))
+
+    if len(customer_ids) > _SEARCH_BATCH_MAX_CUSTOMERS:
+        raise ToolError(
+            f"Too many customer ids ({len(customer_ids)}); at most "
+            f"{_SEARCH_BATCH_MAX_CUSTOMERS} per call. Split the ids into "
+            "chunks and call this tool once per chunk."
+        )
+
+    utils.logger.info(
+        f"ads_mcp.search_batch fan-out over {len(customer_ids)} customer(s)"
+    )
+
+    def run_one(customer_id: str) -> List[Dict[str, Any]]:
+        return search(
+            customer_id=customer_id,
+            fields=fields,
+            resource=resource,
+            conditions=conditions,
+            orderings=orderings,
+            limit=limit,
+        )
+
+    # The FastMCP access token lives in a contextvar, which does not
+    # propagate into worker threads by itself; each task runs in its own
+    # copy of the calling context so per-user credentials keep working.
+    workers = min(_SEARCH_BATCH_MAX_WORKERS, len(customer_ids))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            customer_id: executor.submit(
+                contextvars.copy_context().run, run_one, customer_id
+            )
+            for customer_id in customer_ids
+        }
+
+    results: Dict[str, List[Dict[str, Any]]] = {}
+    errors: Dict[str, str] = {}
+    for customer_id, future in futures.items():
+        try:
+            results[customer_id] = future.result()
+        except Exception as ex:
+            errors[customer_id] = str(ex)
+
+    if not results:
+        raise ToolError(
+            "Every customer in the batch failed:\n"
+            + "\n".join(f"{cid}: {msg}" for cid, msg in errors.items())
+        )
+
+    return {"results": results, "errors": errors}
 
 
 def _dedent_docstring(docstring: str) -> str:
@@ -166,6 +262,17 @@ search_mcp.add_tool(
     Tool.from_function(
         search,
         description=_search_tool_description(),
+        annotations=ToolAnnotations(readOnlyHint=True),
+    )
+)
+
+# Registered the same way as `search` so the module-level function stays
+# directly callable (the batch tool fans out onto it, and tests exercise it).
+# Its description is its docstring: deliberately short, deferring syntax and
+# the resource list to `search` so the tool list doesn't carry that text twice.
+search_mcp.add_tool(
+    Tool.from_function(
+        search_batch,
         annotations=ToolAnnotations(readOnlyHint=True),
     )
 )
