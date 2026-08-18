@@ -28,6 +28,60 @@ import ads_mcp.utils as utils
 from google.ads.googleads.errors import GoogleAdsException
 from fastmcp.exceptions import ToolError
 
+# Next-step guidance keyed by the ErrorCode oneof that Google set, so the
+# model can correct a failed call in one retry instead of guessing.
+_ERROR_HINTS = {
+    "query_error": (
+        "The query is invalid for this resource. Call "
+        "get_resource_metadata(resource) to see its valid fields, metrics "
+        "and segments, then retry once with corrected fields — do not "
+        "guess variations."
+    ),
+    "authorization_error": (
+        "This is an access problem, not a query problem. If the error is "
+        "CUSTOMER_NOT_ENABLED the account is cancelled or suspended: skip "
+        "this customer id instead of retrying."
+    ),
+    "quota_error": (
+        "The API quota is exhausted. Wait before retrying; an immediate "
+        "retry will fail again."
+    ),
+}
+
+
+def _describe_error(error) -> str:
+    """Renders one GoogleAdsError with everything Google told us.
+
+    Adds the error-code class, the offending field path and a next-step
+    hint to the plain message, each part best-effort: anything that cannot
+    be extracted is simply omitted rather than masking the original error.
+    """
+    parts = []
+    which = None
+    try:
+        which = error.error_code._pb.WhichOneof("error_code")
+        if which:
+            code = getattr(error.error_code, which)
+            parts.append(f"[{which}.{code.name}]")
+    except Exception:  # Never let diagnostics break error reporting.
+        which = None
+    try:
+        path = ".".join(
+            element.field_name
+            for element in error.location.field_path_elements
+            if element.field_name
+        )
+        if path:
+            parts.append(f"at '{path}'")
+    except Exception:
+        pass
+    parts.append(error.message)
+    described = "Google Ads API Error " + " ".join(str(p) for p in parts)
+    hint = _ERROR_HINTS.get(which)
+    if hint:
+        described += f"\nHint: {hint}"
+    return described
+
 
 def search(
     customer_id: str,
@@ -82,10 +136,11 @@ def search(
                 )
         return final_output
     except GoogleAdsException as ex:
-        error_msgs = [
-            f"Google Ads API Error: {error.message}"
-            for error in ex.failure.errors
-        ]
+        error_msgs = [_describe_error(error) for error in ex.failure.errors]
+        utils.logger.warning(
+            "ads_mcp.search failed: "
+            + " | ".join(msg.splitlines()[0] for msg in error_msgs)
+        )
         raise ToolError(
             f"Request ID: {ex.request_id}\n" + "\n".join(error_msgs)
         )

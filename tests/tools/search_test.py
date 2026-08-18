@@ -105,9 +105,15 @@ class TestSearch(unittest.TestCase):
         mock_service = MagicMock()
         mock_get_service.return_value = mock_service
 
-        # Mock failure object
+        # Mock failure object carrying everything Google reports: message,
+        # error-code oneof and the offending field path.
         mock_error = MagicMock()
         mock_error.message = "Invalid field name"
+        mock_error.error_code._pb.WhichOneof.return_value = "query_error"
+        mock_error.error_code.query_error.name = "UNRECOGNIZED_FIELD"
+        path_element = MagicMock()
+        path_element.field_name = "invalid_field"
+        mock_error.location.field_path_elements = [path_element]
         mock_failure = MagicMock()
         mock_failure.errors = [mock_error]
 
@@ -130,8 +136,38 @@ class TestSearch(unittest.TestCase):
                 resource="campaign",
             )
 
-        # Verify error message
-        self.assertIn(
-            "Google Ads API Error: Invalid field name", str(context.exception)
+        # Verify error message: code class, field path, Google's message
+        # and the next-step hint all reach the model.
+        message = str(context.exception)
+        self.assertIn("[query_error.UNRECOGNIZED_FIELD]", message)
+        self.assertIn("at 'invalid_field'", message)
+        self.assertIn("Invalid field name", message)
+        self.assertIn("Hint:", message)
+        self.assertIn("get_resource_metadata", message)
+        self.assertIn("Request ID: req-123", message)
+
+    def test_describe_error_authorization_hint(self):
+        """Tests that authorization errors carry the do-not-retry hint."""
+        mock_error = MagicMock()
+        mock_error.message = "The customer account can't be accessed."
+        mock_error.error_code._pb.WhichOneof.return_value = (
+            "authorization_error"
         )
-        self.assertIn("Request ID: req-123", str(context.exception))
+        mock_error.error_code.authorization_error.name = "CUSTOMER_NOT_ENABLED"
+        mock_error.location.field_path_elements = []
+
+        described = search._describe_error(mock_error)
+        self.assertIn("[authorization_error.CUSTOMER_NOT_ENABLED]", described)
+        self.assertIn("skip this customer id instead of retrying", described)
+
+    def test_describe_error_degrades_to_plain_message(self):
+        """Tests that diagnostics failures never mask the original error."""
+        mock_error = MagicMock()
+        mock_error.message = "Something went wrong"
+        mock_error.error_code._pb.WhichOneof.side_effect = RuntimeError
+        mock_error.location.field_path_elements = None
+
+        described = search._describe_error(mock_error)
+        self.assertIn("Google Ads API Error", described)
+        self.assertIn("Something went wrong", described)
+        self.assertNotIn("Hint:", described)
