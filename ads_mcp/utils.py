@@ -40,7 +40,12 @@ _GAQL_FILENAME = "gaql_resources.txt"
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("httpx").setLevel(logging.WARNING)
+# At INFO these libraries log one line per request WITH the OAuth access
+# token in the tokeninfo URL -- a live bearer token in Cloud Logging, and
+# most of the log volume. fastmcp 4.x vendors httpx as "httpx2", so both
+# spellings must be silenced.
+for _noisy_logger in ("httpx", "httpx2", "httpcore", "httpcore2"):
+    logging.getLogger(_noisy_logger).setLevel(logging.WARNING)
 
 # OAuth scope for the Google Ads API. Google Ads does not publish a separate
 # read-only scope; access is restricted to read methods by the tools this

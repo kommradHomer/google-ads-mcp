@@ -16,6 +16,7 @@
 
 import contextvars
 import textwrap
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
 from fastmcp import FastMCP
@@ -47,6 +48,19 @@ _ERROR_HINTS = {
         "retry will fail again."
     ),
 }
+
+
+def _caller_label() -> str:
+    """Returns who is making this call, for log attribution only.
+
+    The authenticated user's email when running behind the OAuth proxy,
+    "adc" for local Application Default Credentials use. Log lines carried
+    no user before this, and attributing activity meant fingerprinting
+    OAuth tokens from adjacent httpx lines.
+    """
+    from ads_mcp import customer_resolver
+
+    return customer_resolver._current_email() or "adc"
 
 
 def _describe_error(error) -> str:
@@ -121,7 +135,11 @@ def search(
     query_parts.append(" PARAMETERS omit_unselected_resource_names=true")
 
     query = "".join(query_parts)
-    utils.logger.info(f"ads_mcp.search query {query}")
+    caller = _caller_label()
+    utils.logger.info(
+        f"ads_mcp.search query [{caller} cid={customer_id}] {query}"
+    )
+    started = time.monotonic()
 
     try:
         query_result = ga_service.search_stream(
@@ -134,11 +152,16 @@ def search(
                 final_output.append(
                     utils.format_output_row(row, batch.field_mask.paths)
                 )
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        utils.logger.info(
+            f"ads_mcp.search done [{caller} cid={customer_id}] "
+            f"{len(final_output)} row(s) in {elapsed_ms}ms"
+        )
         return final_output
     except GoogleAdsException as ex:
         error_msgs = [_describe_error(error) for error in ex.failure.errors]
         utils.logger.warning(
-            "ads_mcp.search failed: "
+            f"ads_mcp.search failed [{caller} cid={customer_id}]: "
             + " | ".join(msg.splitlines()[0] for msg in error_msgs)
         )
         raise ToolError(
@@ -198,7 +221,8 @@ def search_batch(
         )
 
     utils.logger.info(
-        f"ads_mcp.search_batch fan-out over {len(customer_ids)} customer(s)"
+        f"ads_mcp.search_batch [{_caller_label()}] fan-out over "
+        f"{len(customer_ids)} customer(s)"
     )
 
     def run_one(customer_id: str) -> List[Dict[str, Any]]:
