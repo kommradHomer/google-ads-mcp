@@ -288,6 +288,8 @@ Instead of hosting this MCP server locally, you can host it on Google Cloud Run 
 
 Note that this only supports authentication with an OAuth Client ID and Client Secret pair through the OAuth proxy (Option #1 above).
 
+> **This fork:** see [DEPLOYMENT.md](DEPLOYMENT.md) for the full production setup — persistent OAuth state, Google-side prerequisites, scaling knobs and log reading. The steps below are the upstream minimum and will sign users out on every restart unless `FASTMCP_HOME` is on persistent storage.
+
 ### Prerequisites
 
 1.  A Google Cloud project.

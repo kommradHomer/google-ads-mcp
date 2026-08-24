@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC.
+# Copyright 2026 the google-ads-mcp fork contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ silently in the background.
 Both facts are available at the moment the proxy trades upstream tokens, so
 this module subclasses the provider to log them:
 
-  ads_mcp auth: roberto@example.com SIGNED IN (completed the consent screen)
-  ads_mcp auth: roberto@example.com refreshed silently (no sign-in needed)
+  ads_mcp auth: alice@example.com SIGNED IN (completed the consent screen)
+  ads_mcp auth: alice@example.com refreshed silently (no sign-in needed)
 
 A sign-in line means the person saw a Google consent screen; a refresh line
 means they did not.

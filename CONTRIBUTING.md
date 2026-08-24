@@ -3,17 +3,18 @@
 We'd love to accept your patches and contributions to this project. There are
 just a few small guidelines you need to follow.
 
-## Contributor License Agreement
+## About this fork
 
-Contributions to this project must be accompanied by a Contributor License
-Agreement. You (or your employer) retain the copyright to your contribution;
-this simply gives us permission to use and redistribute your contributions as
-part of the project. Head over to <https://cla.developers.google.com/> to see
-your current agreements on file or to sign a new one.
+This repository is a fork of
+[googleads/google-ads-mcp](https://github.com/googleads/google-ads-mcp). It adds
+per-user manager-account resolution, a `search_batch` tool, richer API error
+messages and email-attributed auth logging on top of the upstream server. Changes
+to the upstream code are licensed under the same Apache 2.0 license; no
+Contributor License Agreement is required to contribute here. If you want a
+change to land in Google's upstream project, open it there and follow their CLA
+process instead.
 
-You generally only need to submit a CLA once, so if you've already submitted one
-(even if it was for a different project), you probably don't need to do it
-again.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for how to host the server.
 
 ## Code reviews
 
@@ -21,11 +22,6 @@ All submissions, including submissions by project members, require review. We
 use GitHub pull requests for this purpose. Consult
 [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
 information on using pull requests.
-
-## Community Guidelines
-
-This project follows [Google's Open Source Community
-Guidelines](https://opensource.google.com/conduct/).
 
 ## Code Style
 
@@ -85,7 +81,7 @@ branch named `awesome-feature-42` in this repo:
         "run",
         "--no-cache",
         "--spec",
-        "git+https://github.com/googleads/google-ads-mcp.git@awesome-feature-42",
+        "git+https://github.com/YOUR_ORG/google-ads-mcp.git@awesome-feature-42",
         "google-ads-mcp"
       ]
     }

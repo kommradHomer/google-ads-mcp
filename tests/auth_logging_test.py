@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC.
+# Copyright 2026 the google-ads-mcp fork contributors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,9 +45,9 @@ class EmailFromIdTokenTest(unittest.TestCase):
 
     def test_reads_the_email_claim(self):
         """The address is recovered from a well-formed id token."""
-        token = _id_token({"email": "roberto@example.com", "sub": "1"})
+        token = _id_token({"email": "alice@example.com", "sub": "1"})
         self.assertEqual(
-            auth_logging._email_from_id_token(token), "roberto@example.com"
+            auth_logging._email_from_id_token(token), "alice@example.com"
         )
 
     def test_padding_is_restored(self):
@@ -92,9 +92,7 @@ class LoggingGoogleProviderTest(unittest.IsolatedAsyncioTestCase):
         """A completed consent screen names the account that signed in."""
 
         async def exchange(_self, client, authorization_code):
-            await self._capture_email(
-                _id_token({"email": "angelo@example.com"})
-            )
+            await self._capture_email(_id_token({"email": "bob@example.com"}))
             return "issued-token"
 
         with patch.object(
@@ -108,7 +106,7 @@ class LoggingGoogleProviderTest(unittest.IsolatedAsyncioTestCase):
                 )
 
         self.assertEqual(token, "issued-token")
-        self.assertIn("angelo@example.com", logs.output[0])
+        self.assertIn("bob@example.com", logs.output[0])
         self.assertIn("SIGNED IN", logs.output[0])
 
     async def test_refresh_is_logged_distinctly_from_sign_in(self):
@@ -147,7 +145,7 @@ class LoggingGoogleProviderTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_background_refresh_is_logged(self):
         """Most refreshes never touch the token endpoint and must still log."""
-        refreshed = _token_set({"email": "roberto@example.com"})
+        refreshed = _token_set({"email": "alice@example.com"})
 
         async def transparent(_self, upstream_token_set):
             return refreshed
@@ -159,11 +157,11 @@ class LoggingGoogleProviderTest(unittest.IsolatedAsyncioTestCase):
         ):
             with self.assertLogs(auth_logging.logger, "INFO") as logs:
                 result = await self.provider._try_transparent_refresh(
-                    _token_set({"email": "roberto@example.com"})
+                    _token_set({"email": "alice@example.com"})
                 )
 
         self.assertIs(result, refreshed)
-        self.assertIn("roberto@example.com", logs.output[0])
+        self.assertIn("alice@example.com", logs.output[0])
         self.assertIn("refreshed silently", logs.output[0])
 
     async def test_failed_background_refresh_still_names_the_user(self):
@@ -180,11 +178,11 @@ class LoggingGoogleProviderTest(unittest.IsolatedAsyncioTestCase):
             with self.assertLogs(auth_logging.logger, "WARNING") as logs:
                 with self.assertRaises(ValueError):
                     await self.provider._try_transparent_refresh(
-                        _token_set({"email": "angelo@example.com"})
+                        _token_set({"email": "bob@example.com"})
                     )
 
         # The proxy only debug-logs this, so re-raising keeps its fallback.
-        self.assertIn("angelo@example.com", logs.output[0])
+        self.assertIn("bob@example.com", logs.output[0])
         self.assertIn("refresh FAILED", logs.output[0])
 
     async def test_background_refresh_falls_back_to_the_stored_id_token(self):
@@ -226,9 +224,7 @@ class LoggingGoogleProviderTest(unittest.IsolatedAsyncioTestCase):
         """One user's address must never be attributed to the next caller."""
 
         async def signed_in(_self, client, authorization_code):
-            await self._capture_email(
-                _id_token({"email": "roberto@example.com"})
-            )
+            await self._capture_email(_id_token({"email": "alice@example.com"}))
             return "issued-token"
 
         async def no_email(_self, client, authorization_code):
@@ -251,7 +247,7 @@ class LoggingGoogleProviderTest(unittest.IsolatedAsyncioTestCase):
             with self.assertLogs(auth_logging.logger, "INFO") as logs:
                 await self.provider.exchange_authorization_code(None, None)
 
-        self.assertNotIn("roberto@example.com", logs.output[0])
+        self.assertNotIn("alice@example.com", logs.output[0])
         self.assertIn(auth_logging._UNKNOWN, logs.output[0])
 
 
