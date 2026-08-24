@@ -110,10 +110,15 @@ branch rebuilds and rolls out a new revision in about 2–3 minutes.
 
 Notes from running it:
 
-- **`min-instances 1`** is optional. Cold starts take ~8 s (the Google Ads
-  client library is heavy to import), which Claude tolerates, but a warm
-  instance keeps the in-memory per-user account cache alive between
-  conversations. Costs a few euros a month at 1 vCPU / 512 MiB.
+- **`min-instances 1` is required, not optional.** Claude builds a chat's
+  tool list when the conversation starts and gives up after a few failed
+  requests. A cold start takes 14–17 s and the first requests fail with
+  `400` (their session id belonged to the previous instance), so with
+  scale-to-zero the connector shows up in Claude with **no tools** for that
+  whole chat — users see "I don't have a Google Ads tool available". Measured
+  on 2026-08-24: nearly every conversation after 15 min of idle hit this. A
+  warm instance also keeps the per-user account cache alive. Costs a few
+  euros a month at 1 vCPU / 512 MiB.
 - **Rolling out a new revision terminates every live MCP session.** Users
   mid-conversation will see the connector error once and need to start a
   new chat. Deploy outside working hours.
