@@ -122,12 +122,13 @@ Notes from running it:
 - **Rolling out a new revision terminates every live MCP session.** Users
   mid-conversation will see the connector error once and need to start a
   new chat. Deploy outside working hours.
-- The exact `fastmcp==3.4.7` pin in `pyproject.toml` is deliberate: the
-  OAuth proxy's storage layout and the hooks `ads_mcp/auth_logging.py`
-  overrides live in `fastmcp`, and an unbounded build once picked up a 4.0
-  pre-release on a routine rebuild. Bump it on purpose: check that the
-  three overridden hooks and the `mcp-*` storage collections are unchanged,
-  redeploy, and confirm sign-in and silent refresh still work.
+- The exact `fastmcp==4.0.0b3` pin in `pyproject.toml` is deliberate, beta
+  or not. The OAuth proxy and the MCP transport live in `fastmcp`, and the
+  3.4.x line (which depends on `mcp` 1.x) answered Claude's requests with
+  `400 Bad Request: Missing session ID` and left chats without tools; the
+  4.0 line (`mcp` 2.x) served the same client for a week without a single
+  400. Bump on purpose only: deploy, then check the logs for `POST /mcp 400`
+  and for `SIGNED IN` lines in the following hours.
 
 ## Connecting from Claude
 
