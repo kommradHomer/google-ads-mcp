@@ -116,6 +116,74 @@ class TestSearchBatch(unittest.TestCase):
         )
         self.assertIn("1111111111", str(context.exception))
 
+    @patch("ads_mcp.tools.search.search")
+    def test_search_batch_invalid_query_fails_fast(self, mock_search):
+        """Tests that a query-structure error on the canary stops the fan-out."""
+        mock_search.side_effect = ToolError(
+            "Google Ads API Error [query_error.UNRECOGNIZED_FIELD] "
+            "Unrecognized field in the query: 'campaign.start_date'."
+        )
+
+        with self.assertRaises(ToolError) as context:
+            search.search_batch(
+                customer_ids=["1111111111", "2222222222", "3333333333"],
+                fields=["campaign.start_date"],
+                resource="campaign",
+            )
+
+        # Only the canary was queried; the other customers were spared.
+        self.assertEqual(mock_search.call_count, 1)
+        self.assertIn("UNRECOGNIZED_FIELD", str(context.exception))
+        self.assertIn("not run against the other 2", str(context.exception))
+
+    @patch("ads_mcp.tools.search.search")
+    def test_search_batch_customer_error_on_canary_still_fans_out(
+        self, mock_search
+    ):
+        """Tests that a customer-specific canary failure does not stop the batch."""
+
+        def side_effect(customer_id, **kwargs):
+            if customer_id == "1111111111":
+                raise ToolError(
+                    "Google Ads API Error "
+                    "[authorization_error.CUSTOMER_NOT_ENABLED] The customer "
+                    "account can't be accessed."
+                )
+            return [{"customer.id": customer_id}]
+
+        mock_search.side_effect = side_effect
+
+        output = search.search_batch(
+            customer_ids=["1111111111", "2222222222", "3333333333"],
+            fields=["customer.id"],
+            resource="customer",
+        )
+
+        self.assertEqual(mock_search.call_count, 3)
+        self.assertEqual(
+            sorted(output["results"]), ["2222222222", "3333333333"]
+        )
+        self.assertIn("CUSTOMER_NOT_ENABLED", output["errors"]["1111111111"])
+
+    @patch("ads_mcp.tools.search.search")
+    def test_search_batch_single_customer_query_error_raises_plain(
+        self, mock_search
+    ):
+        """Tests that a one-customer batch keeps the every-customer-failed error."""
+        mock_search.side_effect = ToolError(
+            "Google Ads API Error [query_error.UNRECOGNIZED_FIELD] bad field"
+        )
+
+        with self.assertRaises(ToolError) as context:
+            search.search_batch(
+                customer_ids=["1111111111"],
+                fields=["customer.id"],
+                resource="customer",
+            )
+        self.assertIn(
+            "Every customer in the batch failed", str(context.exception)
+        )
+
     def test_search_batch_empty_ids(self):
         """Tests that an empty customer id list is rejected."""
         with self.assertRaises(ToolError):

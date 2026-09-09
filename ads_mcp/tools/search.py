@@ -172,6 +172,28 @@ def search(
 _SEARCH_BATCH_MAX_CUSTOMERS = 50
 _SEARCH_BATCH_MAX_WORKERS = 8
 
+# Error-code families that mean the query itself is invalid, so it would
+# fail identically for every customer in a batch. Families not listed here
+# (authorization_error, quota_error, ...) are conditions of one customer or
+# of the moment, and must not stop the rest of a fan-out.
+_QUERY_STRUCTURE_ERROR_FAMILIES = (
+    "query_error",
+    "change_event_error",
+    "change_status_error",
+    "search_term_insight_error",
+)
+
+
+def _is_query_structure_error(message: str) -> bool:
+    """Whether an error message names a query-structure error class.
+
+    Matches the `[family.CODE]` tag `_describe_error` embeds, so it stays
+    in sync with how batch worker errors are stringified.
+    """
+    return any(
+        f"[{family}." in message for family in _QUERY_STRUCTURE_ERROR_FAMILIES
+    )
+
 
 def search_batch(
     customer_ids: List[str],
@@ -195,8 +217,11 @@ def search_batch(
 
     Returns an object with two keys: `results` maps each customer id to its
     rows, and `errors` maps each customer id that failed to its error
-    message. A failing customer never fails the batch; only if every
-    customer fails is an error raised.
+    message. A customer-specific failure (such as a cancelled account)
+    never fails the batch. The query itself is validated against the first
+    customer before fanning out: if it is structurally invalid (a
+    query_error), the batch fails at once with that error — fix the query
+    and retry the whole batch.
 
     Args:
         customer_ids: The ids of the customers to run the query against
@@ -235,25 +260,46 @@ def search_batch(
             limit=limit,
         )
 
+    results: Dict[str, List[Dict[str, Any]]] = {}
+    errors: Dict[str, str] = {}
+
+    # Validate the query on one customer before fanning it out. A query
+    # that is structurally invalid fails identically everywhere, and
+    # fanning it out would burn one API operation and log one failure per
+    # customer for a single mistake. A canary failure that is specific to
+    # that customer (for example a cancelled account) says nothing about
+    # the query, so the fan-out proceeds without it.
+    canary_id, remaining_ids = customer_ids[0], customer_ids[1:]
+    try:
+        results[canary_id] = run_one(canary_id)
+    except Exception as ex:
+        if remaining_ids and _is_query_structure_error(str(ex)):
+            raise ToolError(
+                f"{ex}\nThe query was not run against the other "
+                f"{len(remaining_ids)} customer(s): it is invalid "
+                "regardless of customer. Fix the query and retry the "
+                "batch."
+            )
+        errors[canary_id] = str(ex)
+
     # The FastMCP access token lives in a contextvar, which does not
     # propagate into worker threads by itself; each task runs in its own
     # copy of the calling context so per-user credentials keep working.
-    workers = min(_SEARCH_BATCH_MAX_WORKERS, len(customer_ids))
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {
-            customer_id: executor.submit(
-                contextvars.copy_context().run, run_one, customer_id
-            )
-            for customer_id in customer_ids
-        }
+    if remaining_ids:
+        workers = min(_SEARCH_BATCH_MAX_WORKERS, len(remaining_ids))
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                customer_id: executor.submit(
+                    contextvars.copy_context().run, run_one, customer_id
+                )
+                for customer_id in remaining_ids
+            }
 
-    results: Dict[str, List[Dict[str, Any]]] = {}
-    errors: Dict[str, str] = {}
-    for customer_id, future in futures.items():
-        try:
-            results[customer_id] = future.result()
-        except Exception as ex:
-            errors[customer_id] = str(ex)
+        for customer_id, future in futures.items():
+            try:
+                results[customer_id] = future.result()
+            except Exception as ex:
+                errors[customer_id] = str(ex)
 
     if not results:
         raise ToolError(
