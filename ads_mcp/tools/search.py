@@ -105,7 +105,12 @@ def search(
     orderings: List[str] = [],
     limit: int | None = None,
 ) -> List[Dict[str, Any]]:
-    """Fetches data from the Google Ads API using the search method
+    """Fetches individual rows from the Google Ads API with a GAQL query.
+
+    For questions about totals, counts, distinct values or a top-N over many
+    rows (search terms, ads, keywords, labels, daily rows across campaigns),
+    use the `search_aggregate` tool instead: it groups the rows on the server
+    and returns only the answer.
 
     Args:
         customer_id: The id of the customer
@@ -205,12 +210,15 @@ def search_batch(
 ) -> Dict[str, Dict[str, Any]]:
     """Runs one search query against many customers in a single call.
 
-    Use this instead of looping `search` per customer whenever the same
-    query should be answered for several customer ids (for example, the
+    Use this instead of looping `search_search` per customer whenever the
+    same query should be answered for several customer ids (for example, the
     spend of every account under a manager). One call here replaces one
-    `search` call per customer. Query syntax, hints, and the list of valid
-    resources are documented on the `search` tool; the query arguments are
-    identical, only `customer_ids` differs.
+    `search_search` call per customer. For totals, counts, distinct values
+    or a top-N, use `search_aggregate`, which also takes many customer ids
+    and returns one merged answer instead of every account's rows. Query
+    syntax, hints, and the list of valid resources are documented on the
+    `search_search` tool; the query arguments are identical, only
+    `customer_ids` differs.
 
     Accepts at most 50 customer ids per call; chunk larger sets. `limit`
     applies per customer, not to the batch as a whole.
@@ -356,6 +364,11 @@ def _search_tool_description() -> str:
 
 ### Hints for limits
     Requests to resource change_event must specify a LIMIT of less than or equal to 10000
+
+### Hints for large results
+    Search terms, ads, keywords, labels and daily rows across many campaigns can return tens of thousands of rows, far more than can be read.
+    If the question asks for totals, counts, distinct values or a top-N, use the `search_aggregate` tool instead: it groups the rows on the server and returns only the groups.
+    If the rows themselves are needed, narrow them with conditions and use ORDER BY with a LIMIT.
 
 ### Hints for conversions questions
     https://developers.google.com/google-ads/api/docs/conversions/upload-summaries 

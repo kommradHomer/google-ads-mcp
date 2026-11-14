@@ -37,7 +37,8 @@
         ],
         "type": "object",
         "x-fastmcp-wrap-result": true
-      }
+      },
+      "title": "Customers List Accessible Customers"
     },
     {
       "_meta": {
@@ -66,7 +67,8 @@
       "outputSchema": {
         "additionalProperties": true,
         "type": "object"
-      }
+      },
+      "title": "Metadata Get Resource Metadata"
     },
     {
       "_meta": {
@@ -77,7 +79,94 @@
       "annotations": {
         "readOnlyHint": true
       },
-      "description": "\nFetches data from the Google Ads API using the search method\n\nArgs:\n    customer_id: The id of the customer\n    fields: The fields to fetch\n    resource: The resource to return fields from\n    conditions: List of conditions to filter the data, combined using AND clauses\n    orderings: How the data is ordered\n    limit: The maximum number of rows to return\n\n\n\n### Hints\n    Language Grammar can be found at https://developers.google.com/google-ads/api/docs/query/grammar\n    All resources and descriptions are found at https://developers.google.com/google-ads/api/fields/latest/overview\n    If the query fails, a ToolError will be raised with the error details.\n\n    For Conversion issues try looking in offline_conversion_upload_conversion_action_summary\n\n### Hint for customer_id\n    should be a string of numbers without punctuation\n    if presented in the form 123-456-7890 remove the hyphens and use 1234567890\n\n### Hints for Dates\n    All dates should be in the form YYYY-MM-DD and must include the dashes (-)\n    Date ranges must be finite and must include a start and end date\n\n### Hints for limits\n    Requests to resource change_event must specify a LIMIT of less than or equal to 10000\n\n### Hints for conversions questions\n    https://developers.google.com/google-ads/api/docs/conversions/upload-summaries \n\n\n### Hints for all resources\n    To find out which specific fields (including compatible metrics and segments) you can select, filter by, or sort by for a given resource, you MUST use the `get_resource_metadata` tool.\n    Do not guess the fields. Use the tool to look them up.\n    Once you have the fields, ensure the whole field name is used (e.g., 'campaign.id', not just 'id'). Wildcards and partial fields are not allowed.\n\n### Valid resources\n    What follows is a list of valid resources that can be queried.\n    accessible_bidding_strategy\naccount_budget\naccount_budget_proposal\naccount_link\nad\nad_group\nad_group_ad\nad_group_ad_asset_combination_view\nad_group_ad_asset_view\nad_group_ad_label\nad_group_asset\nad_group_asset_set\nad_group_audience_view\nad_group_bid_modifier\nad_group_criterion\nad_group_criterion_customizer\nad_group_criterion_label\nad_group_criterion_simulation\nad_group_customizer\nad_group_label\nad_group_simulation\nad_parameter\nad_schedule_view\nage_range_view\nai_max_search_term_ad_combination_view\nandroid_privacy_shared_key_google_ad_group\nandroid_privacy_shared_key_google_campaign\nandroid_privacy_shared_key_google_network_type\napplied_incentive\nasset\nasset_field_type_view\nasset_group\nasset_group_asset\nasset_group_listing_group_filter\nasset_group_product_group_view\nasset_group_signal\nasset_group_top_combination_view\nasset_set\nasset_set_asset\nasset_set_type_view\naudience\nbatch_job\nbidding_data_exclusion\nbidding_seasonality_adjustment\nbidding_strategy\nbidding_strategy_simulation\nbilling_setup\ncall_view\ncampaign\ncampaign_aggregate_asset_view\ncampaign_asset\ncampaign_asset_set\ncampaign_audience_view\ncampaign_bid_modifier\ncampaign_budget\ncampaign_conversion_goal\ncampaign_criterion\ncampaign_customizer\ncampaign_draft\ncampaign_goal_config\ncampaign_group\ncampaign_label\ncampaign_lifecycle_goal\ncampaign_search_term_insight\ncampaign_search_term_view\ncampaign_shared_set\ncampaign_simulation\ncarrier_constant\nchange_event\nchange_status\nchannel_aggregate_asset_view\nclick_view\ncombined_audience\ncontent_criterion_view\nconversion_action\nconversion_custom_variable\nconversion_goal_campaign_config\nconversion_value_rule\nconversion_value_rule_set\ncurrency_constant\ncustom_audience\ncustom_conversion_goal\ncustom_interest\ncustomer\ncustomer_asset\ncustomer_asset_set\ncustomer_client\ncustomer_client_link\ncustomer_conversion_goal\ncustomer_customizer\ncustomer_label\ncustomer_lifecycle_goal\ncustomer_manager_link\ncustomer_negative_criterion\ncustomer_search_term_insight\ncustomer_user_access\ncustomer_user_access_invitation\ncustomizer_attribute\ndata_link\ndetail_content_suitability_placement_view\ndetail_placement_view\ndetailed_demographic\ndisplay_keyword_view\ndistance_view\ndomain_category\ndynamic_search_ads_search_term_view\nexpanded_landing_page_view\nexperiment\nexperiment_arm\nfinal_url_expansion_asset_view\ngender_view\ngeo_target_constant\ngeographic_view\ngoal\ngroup_content_suitability_placement_view\ngroup_placement_view\nhotel_group_view\nhotel_performance_view\nhotel_reconciliation\nincome_range_view\nkeyword_plan\nkeyword_plan_ad_group\nkeyword_plan_ad_group_keyword\nkeyword_plan_campaign\nkeyword_plan_campaign_keyword\nkeyword_theme_constant\nkeyword_view\nlabel\nlanding_page_view\nlanguage_constant\nlead_form_submission_data\nlife_event\nlocal_services_employee\nlocal_services_lead\nlocal_services_lead_conversation\nlocal_services_verification_artifact\nlocation_interest_view\nlocation_view\nmanaged_placement_view\nmatched_location_interest_view\nmedia_file\nmobile_app_category_constant\nmobile_device_constant\noffline_conversion_upload_client_summary\noffline_conversion_upload_conversion_action_summary\noffline_user_data_job\noperating_system_version_constant\npaid_organic_search_term_view\nparental_status_view\nper_store_view\nperformance_max_placement_view\nproduct_category_constant\nproduct_group_view\nproduct_link\nproduct_link_invitation\nqualifying_question\nrecommendation\nrecommendation_subscription\nremarketing_action\nsearch_term_view\nshared_criterion\nshared_set\nshopping_performance_view\nshopping_product\nsmart_campaign_search_term_view\nsmart_campaign_setting\ntargeting_expansion_view\nthird_party_app_analytics_link\ntopic_constant\ntopic_view\ntravel_activity_group_view\ntravel_activity_performance_view\nuser_interest\nuser_list\nuser_list_customer_type\nuser_location_view\nvideo\nwebpage_view\nyou_tube_video_upload\n\n",
+      "description": "Answers total, count, distinct-value and top-N questions over many rows.\n\nPrefer this over `search_search` and `search_search_batch` whenever the\nquestion is about totals or rankings rather than individual rows. For\nexample: which campaigns carry a label; how many ads are disapproved;\nwhich search terms spent money without converting; the top 50 keywords\nby cost; total spend per channel across accounts. It scans every matching\nrow on the server and returns only the groups, so it handles search\nterms, ads, keywords and daily rows in large accounts, where\n`search_search` would return tens of thousands of rows. Query syntax,\nhints, and the list of valid resources are documented on the\n`search_search` tool; `resource` and `conditions` work exactly as there.\n\nThe rows of SELECT <group_by>, <metrics> FROM <resource> WHERE\n<conditions> are grouped by their `group_by` values. Each group reports\n`row_count` (the number of API rows in it, e.g. ads or search-term rows)\nand the sum of every field in `metrics`.\n- Distinct values: set `group_by`, leave `metrics` empty. E.g. campaigns\n  carrying a label: resource ad_group_ad_label, group_by\n  [campaign.id, campaign.name], conditions [label.id = 123].\n- Counts by value: e.g. group_by\n  [ad_group_ad.policy_summary.approval_status] on ad_group_ad.\n- Grand total: leave `group_by` empty.\n- `metrics` takes additive metrics only (cost_micros, clicks,\n  impressions, conversions, conversions_value, ...). Ratios are\n  recomputed from the totals when both parts are summed: derived.ctr,\n  derived.average_cpc_micros, derived.average_cpm_micros,\n  derived.conversion_rate (conversions / clicks),\n  derived.cost_per_conversion_micros, derived.value_per_conversion,\n  derived.roas (conversions_value per unit of cost). Ratio, average and\n  share metrics such as metrics.ctr or metrics.search_impression_share\n  are rejected because they cannot be added up.\n- `conditions` filter single rows before grouping. `having` filters\n  groups by their totals: [\"metrics.conversions = 0\",\n  \"metrics.cost_micros > 50000000\"] keeps search terms that spent over\n  50 in total without converting in any ad group. Put every condition on\n  a total in `having`, not `conditions`.\n- Results are sorted by `order_by` (one output column, optional ASC or\n  DESC; default the first metric, else row_count, descending) and capped\n  at `top` groups. `groups_matched` says how many groups passed\n  `having`; `totals` sums all of them, not just the returned ones.\n- Several customer ids (at most 50) are merged into the same groups.\n  For one group per account instead, add customer.id (and\n  customer.descriptive_name) to `group_by`. When money metrics are\n  summed across accounts, groups are also split by\n  customer.currency_code so currencies never mix. A customer that fails\n  is listed in `errors`; an invalid query fails at once.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "conditions": {
+            "default": [],
+            "description": "Row filters applied before grouping, combined using AND",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "customer_ids": {
+            "description": "The ids of the customers to aggregate over",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "group_by": {
+            "default": [],
+            "description": "Fields whose values define the groups",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "having": {
+            "default": [],
+            "description": "Filters on group totals, like 'metrics.conversions = 0'",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "metrics": {
+            "default": [],
+            "description": "Additive metrics to sum per group",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "order_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Output column to sort groups by, optional ASC or DESC"
+          },
+          "resource": {
+            "description": "The resource to read rows from",
+            "type": "string"
+          },
+          "top": {
+            "default": 100,
+            "description": "The maximum number of groups to return (1-1000)",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "customer_ids",
+          "resource"
+        ],
+        "type": "object"
+      },
+      "name": "search_aggregate",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Search Aggregate"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "\nFetches individual rows from the Google Ads API with a GAQL query.\n\nFor questions about totals, counts, distinct values or a top-N over many\nrows (search terms, ads, keywords, labels, daily rows across campaigns),\nuse the `search_aggregate` tool instead: it groups the rows on the server\nand returns only the answer.\n\nArgs:\n    customer_id: The id of the customer\n    fields: The fields to fetch\n    resource: The resource to return fields from\n    conditions: List of conditions to filter the data, combined using AND clauses\n    orderings: How the data is ordered\n    limit: The maximum number of rows to return\n\n\n\n### Hints\n    Language Grammar can be found at https://developers.google.com/google-ads/api/docs/query/grammar\n    All resources and descriptions are found at https://developers.google.com/google-ads/api/fields/latest/overview\n    If the query fails, a ToolError will be raised with the error details.\n\n    For Conversion issues try looking in offline_conversion_upload_conversion_action_summary\n\n### Hint for customer_id\n    should be a string of numbers without punctuation\n    if presented in the form 123-456-7890 remove the hyphens and use 1234567890\n\n### Hints for Dates\n    All dates should be in the form YYYY-MM-DD and must include the dashes (-)\n    Date ranges must be finite and must include a start and end date\n\n### Hints for limits\n    Requests to resource change_event must specify a LIMIT of less than or equal to 10000\n\n### Hints for large results\n    Search terms, ads, keywords, labels and daily rows across many campaigns can return tens of thousands of rows, far more than can be read.\n    If the question asks for totals, counts, distinct values or a top-N, use the `search_aggregate` tool instead: it groups the rows on the server and returns only the groups.\n    If the rows themselves are needed, narrow them with conditions and use ORDER BY with a LIMIT.\n\n### Hints for conversions questions\n    https://developers.google.com/google-ads/api/docs/conversions/upload-summaries \n\n\n### Hints for all resources\n    To find out which specific fields (including compatible metrics and segments) you can select, filter by, or sort by for a given resource, you MUST use the `get_resource_metadata` tool.\n    Do not guess the fields. Use the tool to look them up.\n    Once you have the fields, ensure the whole field name is used (e.g., 'campaign.id', not just 'id'). Wildcards and partial fields are not allowed.\n\n### Valid resources\n    What follows is a list of valid resources that can be queried.\n    accessible_bidding_strategy\naccount_budget\naccount_budget_proposal\naccount_link\nad\nad_group\nad_group_ad\nad_group_ad_asset_combination_view\nad_group_ad_asset_view\nad_group_ad_label\nad_group_asset\nad_group_asset_set\nad_group_audience_view\nad_group_bid_modifier\nad_group_criterion\nad_group_criterion_customizer\nad_group_criterion_label\nad_group_criterion_simulation\nad_group_customizer\nad_group_label\nad_group_simulation\nad_parameter\nad_schedule_view\nage_range_view\nai_max_search_term_ad_combination_view\nandroid_privacy_shared_key_google_ad_group\nandroid_privacy_shared_key_google_campaign\nandroid_privacy_shared_key_google_network_type\napplied_incentive\nasset\nasset_field_type_view\nasset_group\nasset_group_asset\nasset_group_listing_group_filter\nasset_group_product_group_view\nasset_group_signal\nasset_group_top_combination_view\nasset_set\nasset_set_asset\nasset_set_type_view\naudience\nbatch_job\nbidding_data_exclusion\nbidding_seasonality_adjustment\nbidding_strategy\nbidding_strategy_simulation\nbilling_setup\ncall_view\ncampaign\ncampaign_aggregate_asset_view\ncampaign_asset\ncampaign_asset_set\ncampaign_audience_view\ncampaign_bid_modifier\ncampaign_budget\ncampaign_conversion_goal\ncampaign_criterion\ncampaign_customizer\ncampaign_draft\ncampaign_goal_config\ncampaign_group\ncampaign_label\ncampaign_lifecycle_goal\ncampaign_search_term_insight\ncampaign_search_term_view\ncampaign_shared_set\ncampaign_simulation\ncarrier_constant\nchange_event\nchange_status\nchannel_aggregate_asset_view\nclick_view\ncombined_audience\ncontent_criterion_view\nconversion_action\nconversion_custom_variable\nconversion_goal_campaign_config\nconversion_value_rule\nconversion_value_rule_set\ncurrency_constant\ncustom_audience\ncustom_conversion_goal\ncustom_interest\ncustomer\ncustomer_asset\ncustomer_asset_set\ncustomer_client\ncustomer_client_link\ncustomer_conversion_goal\ncustomer_customizer\ncustomer_label\ncustomer_lifecycle_goal\ncustomer_manager_link\ncustomer_negative_criterion\ncustomer_search_term_insight\ncustomer_user_access\ncustomer_user_access_invitation\ncustomizer_attribute\ndata_link\ndetail_content_suitability_placement_view\ndetail_placement_view\ndetailed_demographic\ndisplay_keyword_view\ndistance_view\ndomain_category\ndynamic_search_ads_search_term_view\nexpanded_landing_page_view\nexperiment\nexperiment_arm\nfinal_url_expansion_asset_view\ngender_view\ngeo_target_constant\ngeographic_view\ngoal\ngroup_content_suitability_placement_view\ngroup_placement_view\nhotel_group_view\nhotel_performance_view\nhotel_reconciliation\nincome_range_view\nkeyword_plan\nkeyword_plan_ad_group\nkeyword_plan_ad_group_keyword\nkeyword_plan_campaign\nkeyword_plan_campaign_keyword\nkeyword_theme_constant\nkeyword_view\nlabel\nlanding_page_view\nlanguage_constant\nlead_form_submission_data\nlife_event\nlocal_services_employee\nlocal_services_lead\nlocal_services_lead_conversation\nlocal_services_verification_artifact\nlocation_interest_view\nlocation_view\nmanaged_placement_view\nmatched_location_interest_view\nmedia_file\nmobile_app_category_constant\nmobile_device_constant\noffline_conversion_upload_client_summary\noffline_conversion_upload_conversion_action_summary\noffline_user_data_job\noperating_system_version_constant\npaid_organic_search_term_view\nparental_status_view\nper_store_view\nperformance_max_placement_view\nproduct_category_constant\nproduct_group_view\nproduct_link\nproduct_link_invitation\nqualifying_question\nrecommendation\nrecommendation_subscription\nremarketing_action\nsearch_term_view\nshared_criterion\nshared_set\nshopping_performance_view\nshopping_product\nsmart_campaign_search_term_view\nsmart_campaign_setting\ntargeting_expansion_view\nthird_party_app_analytics_link\ntopic_constant\ntopic_view\ntravel_activity_group_view\ntravel_activity_performance_view\nuser_interest\nuser_list\nuser_list_customer_type\nuser_location_view\nvideo\nwebpage_view\nyou_tube_video_upload\n\n",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -148,7 +237,8 @@
         ],
         "type": "object",
         "x-fastmcp-wrap-result": true
-      }
+      },
+      "title": "Search Search"
     },
     {
       "_meta": {
@@ -159,7 +249,7 @@
       "annotations": {
         "readOnlyHint": true
       },
-      "description": "Runs one search query against many customers in a single call.\n\nUse this instead of looping `search` per customer whenever the same\nquery should be answered for several customer ids (for example, the\nspend of every account under a manager). One call here replaces one\n`search` call per customer. Query syntax, hints, and the list of valid\nresources are documented on the `search` tool; the query arguments are\nidentical, only `customer_ids` differs.\n\nAccepts at most 50 customer ids per call; chunk larger sets. `limit`\napplies per customer, not to the batch as a whole.\n\nReturns an object with two keys: `results` maps each customer id to its\nrows, and `errors` maps each customer id that failed to its error\nmessage. A customer-specific failure (such as a cancelled account)\nnever fails the batch. The query itself is validated against the first\ncustomer before fanning out: if it is structurally invalid (a\nquery_error), the batch fails at once with that error \u2014 fix the query\nand retry the whole batch.",
+      "description": "Runs one search query against many customers in a single call.\n\nUse this instead of looping `search_search` per customer whenever the\nsame query should be answered for several customer ids (for example, the\nspend of every account under a manager). One call here replaces one\n`search_search` call per customer. For totals, counts, distinct values\nor a top-N, use `search_aggregate`, which also takes many customer ids\nand returns one merged answer instead of every account's rows. Query\nsyntax, hints, and the list of valid resources are documented on the\n`search_search` tool; the query arguments are identical, only\n`customer_ids` differs.\n\nAccepts at most 50 customer ids per call; chunk larger sets. `limit`\napplies per customer, not to the batch as a whole.\n\nReturns an object with two keys: `results` maps each customer id to its\nrows, and `errors` maps each customer id that failed to its error\nmessage. A customer-specific failure (such as a cancelled account)\nnever fails the batch. The query itself is validated against the first\ncustomer before fanning out: if it is structurally invalid (a\nquery_error), the batch fails at once with that error \u2014 fix the query\nand retry the whole batch.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -224,7 +314,8 @@
           "type": "object"
         },
         "type": "object"
-      }
+      },
+      "title": "Search Search Batch"
     }
   ]
 }
