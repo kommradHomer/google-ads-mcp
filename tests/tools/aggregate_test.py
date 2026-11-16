@@ -94,6 +94,48 @@ class TestAggregate(unittest.TestCase):
         self.assertEqual(output["query"], expected)
         self.assertEqual(output["groups"], [])
 
+    def test_change_event_gets_its_required_limit(self):
+        """Tests that change_event is read newest first with a LIMIT."""
+        service = self.serve({"1": []})
+
+        output = agg.aggregate(
+            customer_ids=["1"],
+            resource="change_event",
+            group_by=["change_event.user_email"],
+            conditions=["change_event.change_date_time DURING LAST_7_DAYS"],
+        )
+
+        expected = (
+            "SELECT change_event.user_email FROM change_event "
+            "WHERE change_event.change_date_time DURING LAST_7_DAYS "
+            "ORDER BY change_event.change_date_time DESC LIMIT 10000 "
+            "PARAMETERS omit_unselected_resource_names=true"
+        )
+        service.search_stream.assert_called_once_with(
+            customer_id="1", query=expected
+        )
+        self.assertNotIn("incomplete", output)
+
+    def test_reports_customers_that_reached_the_required_limit(self):
+        """Tests that a capped customer is named in `incomplete`."""
+        self.serve({"1": [], "2": []})
+        scans = {"1": ({("a",): [("a",), 3]}, 3), "2": ({}, 1)}
+
+        with (
+            patch.dict(agg._REQUIRED_LIMITS, {"change_event": (3, "x")}),
+            patch.object(
+                agg, "_scan_customer", side_effect=lambda cid, *_: scans[cid]
+            ),
+        ):
+            output = agg.aggregate(
+                customer_ids=["1", "2"],
+                resource="change_event",
+                group_by=["change_event.user_email"],
+            )
+
+        self.assertEqual(output["rows_scanned"], 4)
+        self.assertIn("customer(s) 1 reached", output["incomplete"])
+
     def test_sums_per_group_and_recomputes_ratios(self):
         """Tests sums per group and ratios from sums, not averaged ratios."""
         self.serve(

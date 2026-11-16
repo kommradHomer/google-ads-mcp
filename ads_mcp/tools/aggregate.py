@@ -56,6 +56,12 @@ _MAX_TOP = 1000
 # exists to avoid. 100k small groups stay in the tens of MiB.
 _MAX_GROUPS = 100_000
 
+# Resources the API refuses to read without a LIMIT, with the largest LIMIT
+# it accepts and the field to order by so the cap keeps the newest rows.
+_REQUIRED_LIMITS = {
+    "change_event": (10_000, "change_event.change_date_time"),
+}
+
 # Substrings that mark a metric as a ratio, average, share, score or date:
 # adding such values up across rows produces a meaningless number.
 _NON_ADDITIVE_MARKERS = (
@@ -284,6 +290,9 @@ def _build_query(
     query = f"SELECT {','.join(fields)} FROM {resource}"
     if conditions:
         query += f" WHERE {' AND '.join(conditions)}"
+    if resource in _REQUIRED_LIMITS:
+        limit, newest_first = _REQUIRED_LIMITS[resource]
+        query += f" ORDER BY {newest_first} DESC LIMIT {limit}"
     return query + " PARAMETERS omit_unselected_resource_names=true"
 
 
@@ -484,6 +493,10 @@ def aggregate(
       summed across accounts, groups are also split by
       customer.currency_code so currencies never mix. A customer that fails
       is listed in `errors`; an invalid query fails at once.
+    - change_event works here too: its required LIMIT is added for you
+      (the newest 10000 rows per customer; `incomplete` appears in the
+      output if a customer reached it). Still filter on
+      change_event.change_date_time, as in `search_search`.
 
     Args:
         customer_ids: The ids of the customers to aggregate over
@@ -528,11 +541,17 @@ def aggregate(
     )
     budget = _GroupBudget(_MAX_GROUPS)
 
+    row_limit = _REQUIRED_LIMITS.get(resource, (None,))[0]
+    capped: List[str] = []
+
     def run_one(customer_id: str):
         prefix = (_currency_of(customer_id),) if split_by_currency else ()
-        return _scan_customer(
+        groups, rows = _scan_customer(
             customer_id, query, group_by, metrics, prefix, budget
         )
+        if row_limit and rows >= row_limit:
+            capped.append(customer_id)
+        return groups, rows
 
     partials: List[Tuple[Dict[Tuple[Any, ...], list], int]] = []
     errors: Dict[str, str] = {}
@@ -621,7 +640,7 @@ def aggregate(
     ]
 
     returned = _sort_groups(matched, sort_column, descending)[:top]
-    return {
+    output = {
         "query": query,
         "rows_scanned": rows_scanned,
         "groups_found": len(finished),
@@ -631,6 +650,14 @@ def aggregate(
         "totals": totals,
         "errors": errors,
     }
+    if capped:
+        output["incomplete"] = (
+            f"{resource} returns at most {row_limit} rows per customer, "
+            f"and customer(s) {', '.join(sorted(capped))} reached that: "
+            "only their newest rows were counted. Narrow the date range "
+            "in `conditions` and call again per range for full counts."
+        )
+    return output
 
 
 # Registered with `add_tool` like the search tools, so the module-level
