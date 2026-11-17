@@ -69,6 +69,69 @@ class TestSearch(unittest.TestCase):
         self.assertEqual(results[0]["id"], 1)
         self.assertEqual(results[1]["name"], "C2")
 
+    def _stream(self, mock_get_service, batch_sizes):
+        """Serves a stream of batches holding the given numbers of rows."""
+        batches = []
+        for size in batch_sizes:
+            batch = MagicMock()
+            batch.results = [MagicMock() for _ in range(size)]
+            batch.field_mask.paths = ["campaign.id"]
+            batches.append(batch)
+        stream = MagicMock()
+        stream.__iter__.return_value = iter(batches)
+        mock_get_service.return_value.search_stream.return_value = stream
+        return stream
+
+    @patch("ads_mcp.tools.search._MAX_ROWS", 3)
+    @patch("ads_mcp.utils.get_googleads_service")
+    @patch("ads_mcp.utils.format_output_row", return_value={"id": 1})
+    def test_search_cuts_off_after_the_row_cap(self, _, mock_get_service):
+        """Tests that rows past the cap are dropped and the cut is marked."""
+        stream = self._stream(mock_get_service, [2, 2, 2])
+
+        results = search.search(
+            customer_id="1", fields=["campaign.id"], resource="campaign"
+        )
+
+        self.assertEqual(results[:3], [{"id": 1}] * 3)
+        self.assertEqual(len(results), 4)
+        self.assertEqual(list(results[3]), ["truncated"])
+        self.assertIn("arbitrary subset", results[3]["truncated"])
+        self.assertIn("search_aggregate", results[3]["truncated"])
+        stream.cancel.assert_called_once_with()
+
+    @patch("ads_mcp.tools.search._MAX_ROWS", 3)
+    @patch("ads_mcp.utils.get_googleads_service")
+    @patch("ads_mcp.utils.format_output_row", return_value={"id": 1})
+    def test_search_cut_off_note_names_the_ordering(self, _, mock_get_service):
+        """Tests that an ordered, over-limit query keeps its first rows."""
+        self._stream(mock_get_service, [5])
+
+        results = search.search(
+            customer_id="1",
+            fields=["campaign.id"],
+            resource="campaign",
+            orderings=["campaign.id ASC"],
+            limit=100,
+        )
+
+        self.assertEqual(len(results), 4)
+        self.assertIn("requested order", results[3]["truncated"])
+
+    @patch("ads_mcp.tools.search._MAX_ROWS", 3)
+    @patch("ads_mcp.utils.get_googleads_service")
+    @patch("ads_mcp.utils.format_output_row", return_value={"id": 1})
+    def test_search_exactly_at_the_cap_is_complete(self, _, mock_get_service):
+        """Tests that a result that just fits carries no marker."""
+        stream = self._stream(mock_get_service, [2, 1])
+
+        results = search.search(
+            customer_id="1", fields=["campaign.id"], resource="campaign"
+        )
+
+        self.assertEqual(results, [{"id": 1}] * 3)
+        stream.cancel.assert_not_called()
+
     def test_search_tool_description(self):
         """Tests that the tool description is generated correctly."""
         # Mocking open as if the file exists

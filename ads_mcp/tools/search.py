@@ -97,6 +97,31 @@ def _describe_error(error) -> str:
     return described
 
 
+# The most rows one customer's query returns. Every row is held in memory and
+# serialized into the response, so an uncapped query on a large account can
+# exhaust the container; this many rows is also already more than a model
+# can read. `search_aggregate` covers questions that span more rows.
+_MAX_ROWS = 5000
+
+# Key of the marker appended after the rows when a result was cut off.
+TRUNCATED = "truncated"
+
+
+def _truncation_note(ordered: bool) -> str:
+    which = (
+        "the first rows in the requested order"
+        if ordered
+        else "an arbitrary subset, since the query has no ordering"
+    )
+    return (
+        f"Only {_MAX_ROWS} rows are returned per customer and more rows "
+        f"matched; these are {which}. This result is incomplete: do not "
+        "present it as the full list or compute totals from it. For "
+        "totals, counts, distinct values or a top-N use `search_aggregate`; "
+        "otherwise narrow the conditions."
+    )
+
+
 def search(
     customer_id: str,
     fields: List[str],
@@ -111,6 +136,10 @@ def search(
     rows (search terms, ads, keywords, labels, daily rows across campaigns),
     use the `search_aggregate` tool instead: it groups the rows on the server
     and returns only the answer.
+
+    Returns at most 5000 rows. When more rows matched, the list ends with one
+    extra item, {"truncated": "<explanation>"}, and the rows before it are
+    only part of the answer; a `limit` above 5000 is cut the same way.
 
     Args:
         customer_id: The id of the customer
@@ -152,16 +181,29 @@ def search(
         )
 
         final_output: List = []
+        truncated = False
         for batch in query_result:
             for row in batch.results:
+                if len(final_output) >= _MAX_ROWS:
+                    truncated = True
+                    break
                 final_output.append(
                     utils.format_output_row(row, batch.field_mask.paths)
                 )
+            if truncated:
+                # Stop the server stream instead of draining it unread.
+                cancel = getattr(query_result, "cancel", None)
+                if callable(cancel):
+                    cancel()
+                break
         elapsed_ms = int((time.monotonic() - started) * 1000)
         utils.logger.info(
             f"ads_mcp.search done [{caller} cid={customer_id}] "
             f"{len(final_output)} row(s) in {elapsed_ms}ms"
+            + (" (truncated)" if truncated else "")
         )
+        if truncated:
+            final_output.append({TRUNCATED: _truncation_note(bool(orderings))})
         return final_output
     except GoogleAdsException as ex:
         error_msgs = [_describe_error(error) for error in ex.failure.errors]
@@ -225,7 +267,9 @@ def search_batch(
 
     Returns an object with two keys: `results` maps each customer id to its
     rows, and `errors` maps each customer id that failed to its error
-    message. A customer-specific failure (such as a cancelled account)
+    message. At most 5000 rows are returned per customer; when a customer
+    had more, a third key `truncated` maps its id to an explanation and its
+    rows are only part of the answer. A customer-specific failure (such as a cancelled account)
     never fails the batch. The query itself is validated against the first
     customer before fanning out: if it is structurally invalid (a
     query_error), the batch fails at once with that error — fix the query
@@ -315,7 +359,17 @@ def search_batch(
             + "\n".join(f"{cid}: {msg}" for cid, msg in errors.items())
         )
 
-    return {"results": results, "errors": errors}
+    # `search` marks a cut-off result with a trailing marker item; lift it
+    # out of the rows so every customer's list holds rows only.
+    truncated: Dict[str, str] = {}
+    for customer_id, rows in results.items():
+        if rows and isinstance(rows[-1], dict) and set(rows[-1]) == {TRUNCATED}:
+            truncated[customer_id] = rows.pop()[TRUNCATED]
+
+    output: Dict[str, Dict[str, Any]] = {"results": results, "errors": errors}
+    if truncated:
+        output[TRUNCATED] = truncated
+    return output
 
 
 def _dedent_docstring(docstring: str) -> str:
@@ -369,6 +423,7 @@ def _search_tool_description() -> str:
     Search terms, ads, keywords, labels and daily rows across many campaigns can return tens of thousands of rows, far more than can be read.
     If the question asks for totals, counts, distinct values or a top-N, use the `search_aggregate` tool instead: it groups the rows on the server and returns only the groups.
     If the rows themselves are needed, narrow them with conditions and use ORDER BY with a LIMIT.
+    At most 5000 rows are returned per customer. A result that was cut off says so in a `truncated` note; treat its rows as partial, never as the full list.
 
 ### Hints for conversions questions
     https://developers.google.com/google-ads/api/docs/conversions/upload-summaries 

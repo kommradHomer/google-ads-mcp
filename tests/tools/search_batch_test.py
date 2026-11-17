@@ -65,6 +65,36 @@ class TestSearchBatch(unittest.TestCase):
         )
 
     @patch("ads_mcp.tools.search.search")
+    def test_search_batch_lists_truncated_customers(self, mock_search):
+        """Tests that a cut-off customer is named and its rows hold no marker."""
+        mock_search.side_effect = lambda customer_id, **kwargs: (
+            [{"customer.id": "1"}, {"truncated": "cut off"}]
+            if customer_id == "1"
+            else [{"customer.id": "2"}]
+        )
+
+        output = search.search_batch(
+            customer_ids=["1", "2"], fields=["customer.id"], resource="customer"
+        )
+
+        self.assertEqual(
+            output["results"],
+            {"1": [{"customer.id": "1"}], "2": [{"customer.id": "2"}]},
+        )
+        self.assertEqual(output["truncated"], {"1": "cut off"})
+
+    @patch("ads_mcp.tools.search.search")
+    def test_search_batch_omits_truncated_when_complete(self, mock_search):
+        """Tests that a complete batch has no `truncated` key."""
+        mock_search.return_value = [{"customer.id": "1"}]
+
+        output = search.search_batch(
+            customer_ids=["1"], fields=["customer.id"], resource="customer"
+        )
+
+        self.assertNotIn("truncated", output)
+
+    @patch("ads_mcp.tools.search.search")
     def test_search_batch_deduplicates_ids(self, mock_search):
         """Tests that a repeated customer id is only queried once."""
         mock_search.return_value = []
