@@ -25,6 +25,7 @@ from mcp.types import ToolAnnotations
 
 search_mcp = FastMCP("search")
 
+import ads_mcp.streaming as streaming
 import ads_mcp.utils as utils
 from google.ads.googleads.errors import GoogleAdsException
 from fastmcp.exceptions import ToolError
@@ -177,9 +178,8 @@ def search(
     rss_before = utils.rss_mib()
 
     try:
-        query_result = ga_service.search_stream(
-            customer_id=customer_id, query=query
-        )
+        # Rows are parsed one at a time; see `ads_mcp.streaming`.
+        query_result = streaming.search_stream(ga_service, customer_id, query)
 
         final_output: List = []
         truncated = False
@@ -192,10 +192,9 @@ def search(
                     utils.format_output_row(row, batch.field_mask.paths)
                 )
             if truncated:
-                # Stop the server stream instead of draining it unread.
-                cancel = getattr(query_result, "cancel", None)
-                if callable(cancel):
-                    cancel()
+                # Closing the stream cancels the call instead of draining
+                # it unread.
+                query_result.close()
                 break
         elapsed_ms = int((time.monotonic() - started) * 1000)
         utils.logger.info(

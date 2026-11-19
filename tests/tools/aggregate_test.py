@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, patch
 from fastmcp.exceptions import ToolError
 
 from ads_mcp.tools import aggregate as agg
+from tests import fake_stream
 
 CURRENCY_QUERY = "SELECT customer.currency_code FROM customer"
 
@@ -64,6 +65,11 @@ class TestAggregate(unittest.TestCase):
         patcher = patch("ads_mcp.utils.get_googleads_service")
         self.get_service = patcher.start()
         self.addCleanup(patcher.stop)
+        reader = patch(
+            "ads_mcp.streaming.search_stream", fake_stream.search_stream
+        )
+        reader.start()
+        self.addCleanup(reader.stop)
 
     def serve(self, rows_by_customer, currency_by_customer=None):
         service = fake_service(rows_by_customer, currency_by_customer)

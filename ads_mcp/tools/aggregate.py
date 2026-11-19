@@ -23,6 +23,7 @@ only one running total per group, so its memory grows with the number of
 groups, never with the number of rows.
 """
 
+import contextlib
 import contextvars
 import json
 import operator
@@ -37,6 +38,7 @@ from fastmcp.tools import Tool
 from google.ads.googleads.errors import GoogleAdsException
 from mcp.types import ToolAnnotations
 
+import ads_mcp.streaming as streaming
 import ads_mcp.utils as utils
 from ads_mcp.tools import search as search_tools
 
@@ -362,33 +364,36 @@ def _scan_customer(
     groups: Dict[Tuple[Any, ...], list] = {}
     rows = 0
     try:
-        for batch in ga_service.search_stream(
-            customer_id=customer_id, query=query
-        ):
-            for row in batch.results:
-                rows += 1
-                values = key_prefix + tuple(
-                    utils.format_output_value(utils.get_nested_attr(row, f))
-                    for f in group_by
-                )
-                key = tuple(_hashable(v) for v in values)
-                totals = groups.get(key)
-                if totals is None:
-                    budget.take()
-                    totals = groups[key] = [values, 0] + [0] * len(metrics)
-                totals[1] += 1
-                for i, metric in enumerate(metrics):
-                    value = utils.format_output_value(
-                        utils.get_nested_attr(row, metric)
+        # Rows are parsed one at a time (see `ads_mcp.streaming`); closing
+        # the stream cancels the call if the scan ends early.
+        with contextlib.closing(
+            streaming.search_stream(ga_service, customer_id, query)
+        ) as stream:
+            for batch in stream:
+                for row in batch.results:
+                    rows += 1
+                    values = key_prefix + tuple(
+                        utils.format_output_value(utils.get_nested_attr(row, f))
+                        for f in group_by
                     )
-                    if isinstance(value, bool) or not isinstance(
-                        value, (int, float)
-                    ):
-                        raise ToolError(
-                            f"'{metric}' returned {value!r}, which is not a "
-                            "number and cannot be summed."
+                    key = tuple(_hashable(v) for v in values)
+                    totals = groups.get(key)
+                    if totals is None:
+                        budget.take()
+                        totals = groups[key] = [values, 0] + [0] * len(metrics)
+                    totals[1] += 1
+                    for i, metric in enumerate(metrics):
+                        value = utils.format_output_value(
+                            utils.get_nested_attr(row, metric)
                         )
-                    totals[2 + i] += value
+                        if isinstance(value, bool) or not isinstance(
+                            value, (int, float)
+                        ):
+                            raise ToolError(
+                                f"'{metric}' returned {value!r}, which is not a "
+                                "number and cannot be summed."
+                            )
+                        totals[2 + i] += value
     except GoogleAdsException as ex:
         _raise_api_error(ex, caller, customer_id)
     except ToolError as ex:

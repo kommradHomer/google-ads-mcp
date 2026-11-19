@@ -68,6 +68,12 @@ file against the live API with the `google-ads-mcp-update-gaql` entry point
 
 ## Gotchas
 
+- **`search` and `aggregate` must read results through `ads_mcp/streaming.py`,
+  never `ga_service.search_stream` directly.** The client library parses each
+  10,000-row stream message whole, at about 60 MiB per message however few
+  fields are selected; a few concurrent large streams ran the container out
+  of memory. `streaming.search_stream` parses one row at a time. Tool tests
+  replace it with `tests/fake_stream.py`.
 - **Google Ads API version is hardcoded as `v24`** in multiple places (`utils.py` imports from
   `google.ads.googleads.v24...`, `get_resource_metadata.py`, `resources/discovery.py`'s discovery URL).
   Bumping the API version means updating all of these.

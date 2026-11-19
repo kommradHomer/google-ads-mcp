@@ -18,10 +18,18 @@ import unittest
 from unittest.mock import MagicMock, patch, mock_open
 
 from ads_mcp.tools import search
+from tests import fake_stream
 
 
 class TestSearch(unittest.TestCase):
     """Test cases for the search tool."""
+
+    def setUp(self):
+        reader = patch(
+            "ads_mcp.streaming.search_stream", fake_stream.search_stream
+        )
+        reader.start()
+        self.addCleanup(reader.stop)
 
     @patch("ads_mcp.utils.get_googleads_service")
     @patch("ads_mcp.utils.format_output_row")
