@@ -33,6 +33,7 @@ import os
 import importlib.resources
 import contextlib
 import subprocess
+import threading
 from unittest.mock import patch
 
 # filename for generated field information used by search
@@ -185,6 +186,31 @@ def get_googleads_type(typeName: str):
 
 def get_googleads_client(login_customer_id: str | None = None):
     return _get_googleads_client(login_customer_id)
+
+
+def rss_mib() -> int | None:
+    """Returns this process's resident memory in MiB, or None if unknown."""
+    try:
+        with open("/proc/self/statm") as statm:
+            pages = int(statm.read().split()[1])
+        return round(pages * os.sysconf("SC_PAGE_SIZE") / 2**20)
+    except (OSError, ValueError, IndexError, AttributeError):
+        return None
+
+
+def memory_note(rss_before: int | None) -> str:
+    """Returns a log suffix with the process memory now and its change.
+
+    Reads like ` rss=412MiB (+35) threads=9`. The container has been killed
+    for running out of memory without a single large request to blame, so
+    every tool call logs where memory stood when it ended. The change is
+    for the whole process: concurrent calls show up in each other's numbers.
+    """
+    rss_now = rss_mib()
+    if rss_now is None:
+        return ""
+    change = "" if rss_before is None else f" ({rss_now - rss_before:+d})"
+    return f" rss={rss_now}MiB{change} threads={threading.active_count()}"
 
 
 def format_output_value(value: Any) -> Any:

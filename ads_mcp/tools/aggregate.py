@@ -358,6 +358,7 @@ def _scan_customer(
         f"ads_mcp.aggregate query [{caller} cid={customer_id}] {query}"
     )
     started = time.monotonic()
+    rss_before = utils.rss_mib()
     groups: Dict[Tuple[Any, ...], list] = {}
     rows = 0
     try:
@@ -390,10 +391,21 @@ def _scan_customer(
                     totals[2 + i] += value
     except GoogleAdsException as ex:
         _raise_api_error(ex, caller, customer_id)
+    except ToolError as ex:
+        # The group limit and non-numeric metrics end the scan here; without
+        # this line such a call would leave a query in the log and nothing
+        # else.
+        utils.logger.warning(
+            f"ads_mcp.aggregate failed [{caller} cid={customer_id}]: "
+            f"{str(ex).splitlines()[0]} (after {rows} row(s), "
+            f"{len(groups)} group(s))" + utils.memory_note(rss_before)
+        )
+        raise
     elapsed_ms = int((time.monotonic() - started) * 1000)
     utils.logger.info(
         f"ads_mcp.aggregate done [{caller} cid={customer_id}] {rows} row(s) "
         f"into {len(groups)} group(s) in {elapsed_ms}ms"
+        + utils.memory_note(rss_before)
     )
     return groups, rows
 
@@ -540,6 +552,7 @@ def aggregate(
         f"{len(customer_ids)} customer(s)"
     )
     budget = _GroupBudget(_MAX_GROUPS)
+    rss_before = utils.rss_mib()
 
     row_limit = _REQUIRED_LIMITS.get(resource, (None,))[0]
     capped: List[str] = []
@@ -640,6 +653,13 @@ def aggregate(
     ]
 
     returned = _sort_groups(matched, sort_column, descending)[:top]
+    # Memory after merging, finishing and sorting, which the per-customer
+    # lines above do not cover.
+    utils.logger.info(
+        f"ads_mcp.aggregate finished [{search_tools._caller_label()}] "
+        f"{rows_scanned} row(s), {len(finished)} group(s), "
+        f"{len(returned)} returned" + utils.memory_note(rss_before)
+    )
     output = {
         "query": query,
         "rows_scanned": rows_scanned,

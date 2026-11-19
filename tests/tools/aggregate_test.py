@@ -136,6 +136,29 @@ class TestAggregate(unittest.TestCase):
         self.assertEqual(output["rows_scanned"], 4)
         self.assertIn("customer(s) 1 reached", output["incomplete"])
 
+    def test_logs_a_failed_line_when_the_group_limit_ends_a_scan(self):
+        """Tests that hitting the group limit is logged, not silent."""
+        rows = [
+            NS(campaign=NS(name=name), metrics=NS(clicks=1))
+            for name in ("a", "b", "c")
+        ]
+        self.serve({"1": rows})
+
+        with (
+            patch.object(agg, "_MAX_GROUPS", 2),
+            self.assertLogs(agg.utils.logger, "WARNING") as logs,
+            self.assertRaises(ToolError),
+        ):
+            agg.aggregate(
+                customer_ids=["1"],
+                resource="campaign",
+                group_by=["campaign.name"],
+                metrics=["metrics.clicks"],
+            )
+
+        self.assertIn("ads_mcp.aggregate failed [", logs.output[0])
+        self.assertIn("(after 3 row(s), 2 group(s))", logs.output[0])
+
     def test_sums_per_group_and_recomputes_ratios(self):
         """Tests sums per group and ratios from sums, not averaged ratios."""
         self.serve(

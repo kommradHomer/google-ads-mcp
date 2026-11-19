@@ -174,6 +174,7 @@ def search(
         f"ads_mcp.search query [{caller} cid={customer_id}] {query}"
     )
     started = time.monotonic()
+    rss_before = utils.rss_mib()
 
     try:
         query_result = ga_service.search_stream(
@@ -201,6 +202,7 @@ def search(
             f"ads_mcp.search done [{caller} cid={customer_id}] "
             f"{len(final_output)} row(s) in {elapsed_ms}ms"
             + (" (truncated)" if truncated else "")
+            + utils.memory_note(rss_before)
         )
         if truncated:
             final_output.append({TRUNCATED: _truncation_note(bool(orderings))})
